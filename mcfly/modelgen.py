@@ -19,7 +19,8 @@
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Convolution1D, Lambda, \
     Convolution2D, Flatten, \
-    Reshape, LSTM, Dropout, TimeDistributed, BatchNormalization
+    Reshape, LSTM, Dropout, TimeDistributed, BatchNormalization, \
+    GlobalAveragePooling1D, Bidirectional
 from keras.regularizers import l2
 from keras.optimizers import Adam
 import numpy as np
@@ -28,9 +29,9 @@ import numpy as np
 def generate_models(
         x_shape, number_of_classes, number_of_models=5, metrics=['accuracy'],
         model_type=None,
-        cnn_min_layers=1, cnn_max_layers=10,
-        cnn_min_filters=10, cnn_max_filters=50,
-        cnn_min_fc_nodes=10, cnn_max_fc_nodes=1000,
+        cnn_min_layers=5, cnn_max_layers=10,
+        cnn_min_filters=25, cnn_max_filters=50,
+        cnn_min_fc_nodes=500, cnn_max_fc_nodes=1000,
         deepconvlstm_min_conv_layers=1, deepconvlstm_max_conv_layers=10,
         deepconvlstm_min_conv_filters=10, deepconvlstm_max_conv_filters=100,
         deepconvlstm_min_lstm_layers=1, deepconvlstm_max_lstm_layers=5,
@@ -193,14 +194,21 @@ def generate_DeepConvLSTM_model(
                        activation='tanh'))
 
     model.add(Dropout(0.5))  # dropout before the dense layer
-    # set up final dense layer such that every timestamp is given one
-    # classification
-    model.add(
-        TimeDistributed(
-            Dense(units=output_dim, kernel_regularizer=l2(regularization_rate))))
-    model.add(Activation("softmax"))
-    # Final classification layer - per timestep
-    model.add(Lambda(lambda x: x[:, -1, :], output_shape=[output_dim]))
+
+#    # set up final dense layer such that every timestamp is given one
+#    # classification
+#    model.add(
+#        TimeDistributed(
+#            Dense(units=output_dim, kernel_regularizer=l2(regularization_rate))))
+#    model.add(Activation("softmax"))
+#    # Final classification layer - per timestep
+#    model.add(Lambda(lambda x: x[:, -1, :], output_shape=[output_dim]))
+
+    # Pool output of all timesteps and perform classification using pooled output
+    model.add(GlobalAveragePooling1D())
+    model.add(Dense(units=output_dim, kernel_initializer=weightinit))
+    model.add(BatchNormalization())
+    model.add(Activation("softmax"))  # Final classification layer
 
     model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(lr=learning_rate),
