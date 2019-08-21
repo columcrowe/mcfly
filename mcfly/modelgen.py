@@ -21,6 +21,7 @@ from keras.layers import Dense, Activation, Convolution1D, Lambda, \
     Convolution2D, Flatten, \
     Reshape, LSTM, Dropout, TimeDistributed, BatchNormalization, \
     GlobalAveragePooling1D, Bidirectional
+from keras.layers import CuDNNLSTM # Comment on HPC
 from keras.regularizers import l2
 from keras.optimizers import Adam
 import numpy as np
@@ -30,13 +31,13 @@ def generate_models(
         x_shape, number_of_classes, number_of_models=5, metrics=['accuracy'],
         model_type=None,
         cnn_min_layers=5, cnn_max_layers=10,
-        cnn_min_filters=25, cnn_max_filters=50,
+        cnn_min_filters=25, cnn_max_filters=100,
         cnn_min_fc_nodes=500, cnn_max_fc_nodes=1000,
-        deepconvlstm_min_conv_layers=1, deepconvlstm_max_conv_layers=10,
-        deepconvlstm_min_conv_filters=10, deepconvlstm_max_conv_filters=100,
-        deepconvlstm_min_lstm_layers=1, deepconvlstm_max_lstm_layers=5,
-        deepconvlstm_min_lstm_dims=10, deepconvlstm_max_lstm_dims=100,
-        low_lr=1, high_lr=4, low_reg=1, high_reg=4
+        deepconvlstm_min_conv_layers=3, deepconvlstm_max_conv_layers=7,
+        deepconvlstm_min_conv_filters=25, deepconvlstm_max_conv_filters=100,
+        deepconvlstm_min_lstm_layers=1, deepconvlstm_max_lstm_layers=3,
+        deepconvlstm_min_lstm_dims=100, deepconvlstm_max_lstm_dims=500,
+        low_lr=1, high_lr=4, low_reg=1, high_reg=3
 ):
     """
     Generate one or multiple untrained Keras models with random hyperparameters.
@@ -190,8 +191,10 @@ def generate_DeepConvLSTM_model(
     model.add(Reshape(target_shape=(dim_length, filters[-1] * dim_channels)))
 
     for lstm_dim in lstm_dims:
-        model.add(LSTM(units=lstm_dim, return_sequences=True,
-                       activation='tanh'))
+        #model.add(LSTM(units=lstm_dim, return_sequences=True,
+        #               activation='tanh'))
+        # comment following line for HPC
+        model.add(CuDNNLSTM(units=lstm_dim, return_sequences=True))
 
     model.add(Dropout(0.5))  # dropout before the dense layer
 
@@ -210,7 +213,11 @@ def generate_DeepConvLSTM_model(
     model.add(BatchNormalization())
     model.add(Activation("softmax"))  # Final classification layer
 
-    model.compile(loss='categorical_crossentropy',
+    if class_number == 2:
+        loss = 'binary_crossentropy'
+    else:
+        loss = 'categorical_crossentropy'
+    model.compile(loss=loss,
                   optimizer=Adam(lr=learning_rate),
                   metrics=metrics)
 
@@ -273,7 +280,11 @@ def generate_CNN_model(x_shape, class_number, filters, fc_hidden_nodes,
     model.add(BatchNormalization())
     model.add(Activation("softmax"))  # Final classification layer
 
-    model.compile(loss='categorical_crossentropy',
+    if class_number == 2:
+        loss = 'binary_crossentropy'
+    else:
+        loss = 'categorical_crossentropy'
+    model.compile(loss=loss,
                   optimizer=Adam(lr=learning_rate),
                   metrics=metrics)
 
@@ -437,7 +448,7 @@ def get_learning_rate(low=1, high=4):
     learning_rate : float
         learning rate
     """
-    result = 10 ** (-np.random.uniform(low, high))
+    result = 0.001 # Fixed learning rate for Adam #10 ** (-np.random.uniform(low, high))
     return result
 
 
