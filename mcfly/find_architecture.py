@@ -37,7 +37,7 @@ from keras.callbacks import EarlyStopping
 from keras import metrics
 
 
-def train_models_on_samples(X_train, y_train, X_val, y_val, models,
+def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight=[1,1],
                             nr_epochs=5, subset_size=100, verbose=True, outputfile=None,
                             model_path=None, early_stopping=False,
                             batch_size=20, metric='accuracy'):
@@ -109,7 +109,7 @@ def train_models_on_samples(X_train, y_train, X_val, y_val, models,
                             epochs=nr_epochs, batch_size=batch_size,
                             # see comment on subsize_set
                             validation_data=(X_val, y_val),
-                            verbose=verbose,
+                            verbose=verbose, class_weight=class_weight,
                             callbacks=callbacks)
         histories.append(history)
 
