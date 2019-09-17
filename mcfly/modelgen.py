@@ -213,10 +213,11 @@ def generate_DeepConvLSTM_model(
     model.add(BatchNormalization())
     model.add(Activation("softmax"))  # Final classification layer
 
-    if class_number == 2:
-        loss = 'binary_crossentropy'
-    else:
-        loss = 'categorical_crossentropy'
+#    if class_number == 2:
+#        loss = 'binary_crossentropy'
+#    else:
+#        loss = 'categorical_crossentropy'
+    loss = 'categorical_crossentropy'
     model.compile(loss=loss,
                   optimizer=Adam(lr=learning_rate),
                   metrics=metrics)
@@ -280,10 +281,11 @@ def generate_CNN_model(x_shape, class_number, filters, fc_hidden_nodes,
     model.add(BatchNormalization())
     model.add(Activation("softmax"))  # Final classification layer
 
-    if class_number == 2:
-        loss = 'binary_crossentropy'
-    else:
-        loss = 'categorical_crossentropy'
+#    if class_number == 2:
+#        loss = 'binary_crossentropy'
+#    else:
+#        loss = 'categorical_crossentropy'
+    loss = 'categorical_crossentropy'
     model.compile(loss=loss,
                   optimizer=Adam(lr=learning_rate),
                   metrics=metrics)
