@@ -37,10 +37,10 @@ from keras.callbacks import EarlyStopping
 from keras import metrics
 
 
-def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight=[1,1],
-                            nr_epochs=5, subset_size=100, verbose=True, outputfile=None,
+def train_models_on_samples(train_gen, val_gen, models, class_weight=[1,1],
+                            nr_epochs=5, verbose=True, outputfile=None,
                             model_path=None, early_stopping=False,
-                            batch_size=20, metric='accuracy'):
+                            metric='accuracy'):
     """
     Given a list of compiled models, this function trains
     them all on a subset of the train data. If the given size of the subset is
@@ -48,10 +48,8 @@ def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight
 
     Parameters
     ----------
-    X_train : numpy array of shape (num_samples, num_timesteps, num_channels)
-        The input dataset for training
-    y_train : numpy array of shape (num_samples, num_classes)
-        The output classes for the train data, in binary format
+    train_gen : training generator that generates batches of shape (num_samples, num_timesteps, num_channels)
+    val_gen : validation generator that generates batches of shape (num_samples, num_classes)
     X_val : numpy array of shape (num_samples_val, num_timesteps, num_channels)
         The input dataset for validation
     y_val : numpy array of shape (num_samples_val, num_classes)
@@ -60,8 +58,6 @@ def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight
         List of keras models to train
     nr_epochs : int, optional
         nr of epochs to use for training one model
-    subset_size :
-        The number of samples used from the complete train set
     verbose : bool, optional
         flag for displaying verbose output
     outputfile: str, optional
@@ -70,8 +66,6 @@ def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight
         Directory to store the models as HDF5 files
     early_stopping: bool
         Stop when validation loss does not decrease
-    batch_size : int
-        nr of samples per batch
     metric : str
         metric to store in the history object
 
@@ -84,10 +78,6 @@ def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight
     val_losses : list of floats
         validation losses of the models
     """
-    # if subset_size is smaller then X_train, this will work fine
-    X_train_sub = X_train[:subset_size, :, :]
-    y_train_sub = y_train[:subset_size, :]
-
     metric_name = get_metric_name(metric)
 
     histories = []
@@ -105,10 +95,9 @@ def train_models_on_samples(X_train, y_train, X_val, y_val, models, class_weight
                 EarlyStopping(monitor='val_loss', patience=0, verbose=verbose, mode='auto')]
         else:
             callbacks = []
-        history = model.fit(X_train_sub, y_train_sub,
-                            epochs=nr_epochs, batch_size=batch_size,
-                            # see comment on subsize_set
-                            validation_data=(X_val, y_val),
+        history = model.fit_generator(train_generator,
+                            epochs=nr_epochs,
+                            validation_data=val_generator,
                             verbose=verbose, class_weight=class_weight,
                             callbacks=callbacks)
         histories.append(history)
