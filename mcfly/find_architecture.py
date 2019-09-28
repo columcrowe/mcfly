@@ -37,8 +37,8 @@ from keras.callbacks import EarlyStopping
 from keras import metrics
 
 
-def train_models_on_samples(train_gen, val_gen, models, class_weight=[1,1],
-                            nr_epochs=5, verbose=True, outputfile=None,
+def train_models_on_samples(train_generator, val_generator, models, class_weight=[1,1],
+                            nr_epochs=5, n_steps=None, verbose=True, outputfile=None,
                             model_path=None, early_stopping=False,
                             metric='accuracy'):
     """
@@ -50,12 +50,9 @@ def train_models_on_samples(train_gen, val_gen, models, class_weight=[1,1],
     ----------
     train_gen : training generator that generates batches of shape (num_samples, num_timesteps, num_channels)
     val_gen : validation generator that generates batches of shape (num_samples, num_classes)
-    X_val : numpy array of shape (num_samples_val, num_timesteps, num_channels)
-        The input dataset for validation
-    y_val : numpy array of shape (num_samples_val, num_classes)
-        The output classes for the validation data, in binary format
     models : list of model, params, modeltypes
         List of keras models to train
+    class_weight: weights for each class
     nr_epochs : int, optional
         nr of epochs to use for training one model
     verbose : bool, optional
@@ -83,10 +80,12 @@ def train_models_on_samples(train_gen, val_gen, models, class_weight=[1,1],
     histories = []
     val_metrics = []
     val_losses = []
+    if n_steps is None: 
+        n_steps = len(train_generator)
     for i, (model, params, model_types) in enumerate(models):
         if verbose:
             print('Training model %d' % i, model_types)
-        model_metrics = [get_metric_name(name) for name in model.metrics]
+        model_metrics = [get_metric_name(metric) for metric in model.metrics]
         if metric_name not in model_metrics:
             raise ValueError(
                 'Invalid metric. The model was not compiled with {} as metric'.format(metric_name))
@@ -96,7 +95,7 @@ def train_models_on_samples(train_gen, val_gen, models, class_weight=[1,1],
         else:
             callbacks = []
         history = model.fit_generator(train_generator,
-                            epochs=nr_epochs,
+                            epochs=nr_epochs, steps_per_epoch = n_steps,
                             validation_data=val_generator,
                             verbose=verbose, class_weight=class_weight,
                             callbacks=callbacks)
@@ -136,10 +135,10 @@ def store_train_hist_as_json(params, model_type, history, outputfile, metric_nam
     for k in jsondata.keys():
         if isinstance(jsondata[k], np.ndarray):
             jsondata[k] = jsondata[k].tolist()
-    jsondata['train_metric'] = history[metric_name]
-    jsondata['train_loss'] = history['loss']
-    jsondata['val_metric'] = history['val_' + metric_name]
-    jsondata['val_loss'] = history['val_loss']
+    jsondata['train_metric'] = [np.float64(val) for val in history[metric_name]]
+    jsondata['train_loss'] = [np.float64(val) for val in history['loss']]
+    jsondata['val_metric'] = [np.float64(val) for val in history['val_' + metric_name]]
+    jsondata['val_loss'] = [np.float64(val) for val in history['val_loss']]
     jsondata['modeltype'] = model_type
     jsondata['metric'] = metric_name
     if os.path.isfile(outputfile):
@@ -241,7 +240,7 @@ def find_best_architecture(X_train, y_train, X_val, y_val, verbose=True,
     return best_model, best_params, best_model_type, knn_acc
 
 
-def get_metric_name(name):
+def get_metric_name(metric_fn):
     """
     Gives the keras name for a metric
 
@@ -253,14 +252,13 @@ def get_metric_name(name):
     -------
 
     """
-    if name == 'acc' or name == 'accuracy':
-        return 'acc'
-    try:
-        metric_fn = metrics.get(name)
-        return metric_fn.__name__
-    except:
-        pass
-    return name
+    if type(metric_fn) == str:
+        return metric_fn
+    else:
+        try:
+            return metric_fn._fn.__name__
+        except:
+            raise ValueError('Invalid metric given.')
 
 
 def kNN_accuracy(X_train, y_train, X_val, y_val, k=1):
